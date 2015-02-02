@@ -739,3 +739,9 @@ plot(rt_graph, layout=glay,
 # add title
 title("\nTweets with 'bioinformatics':  Who retweets whom",
    cex.main=1, col.main="gray95", family="mono")
+
+
+#########################
+##Other Apps#############
+#########################
+http://www.pamorama.net/2010/04/26/20-top-twitter-monitoring-and-analytics-tools/
