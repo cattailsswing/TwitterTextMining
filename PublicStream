@@ -1,0 +1,575 @@
+install.packages("ROAuth")
+install.packages("twitteR")
+install.packages("wordcloud")
+install.packages("tm")
+install.packages(“RCurl”)
+install.packages(“XML”)
+install.packages(“RColorBrewer”)
+install.packages(“ggplot2”)
+install.packages (“NLP”)
+install.packages(“tm.plugin.webmining”)
+
+library("ROAuth")
+library("twitteR")
+library("wordcloud")
+library("tm")
+library(“RCurl”)
+library(“XML”)
+library(“RColorBrewer”)
+library(“ggplot2”)
+library(“NLP”)
+library(“tm.plugin.webmining”)
+
+#necessary step for Windows
+download.file(url="http://curl.haxx.se/ca/cacert.pem", destfile="cacert.pem")
+ 
+#Enter Twitter API consumerKey and consumerSecreat
+cred <- OAuthFactory$new(consumerKey="g92JqH4AP7LS5ktEGICgSB1qO",
+consumerSecret="K84jxM9ZmJPzwrNQ9lad2WM8MoAJQCSblhrft9a45o6HZwkBSd",
+requestURL='https://api.twitter.com/oauth/request_token',
+accessURL='https://api.twitter.com/oauth/access_token',
+authURL='https://api.twitter.com/oauth/authorize')
+ 
+#necessary step for Windows
+cred$handshake(cainfo="cacert.pem")
+#save for later use for Windows
+save(cred, file="twitter_authentication.Rdata")
+#once saved, next time all you have to do is
+#load("twitter_authentication.Rdata")
+#registerTwitterOAuth(cred)
+ 
+#you should get TRUE
+registerTwitterOAuth(cred)
+
+#############################################################
+##################JP Morgan Word Corpus & Cloud################
+#############################################################
+
+CHASE<- searchTwitter("Chase Bank", n=2500, cainfo="cacert.pem")
+length(CHASE)
+#save text
+CHASE_text <- sapply(CHASE, function(x) x$getText())
+#create corpus
+CHASE_text_corpus <- Corpus(VectorSource(CHASE_text))
+#clean up
+CHASE_text_corpus <- tm_map(CHASE_text_corpus, content_transformer(tolower)) 
+CHASE_corpus <- tm_map(CHASE_text_corpus, removePunctuation)
+CHASE_text_corpus <- tm_map(CHASE_text_corpus, function(x)removeWords(x,stopwords()))
+
+library(RColorBrewer)
+pal2 <- brewer.pal(8,"Dark2")
+pdf("C:/Users/qchen/Desktop/CHASE_color_wordcloud.pdf")
+wordcloud(CHASE_text_corpus,min.freq=2,max.words=100, random.order=T, colors=pal2)
+dev.off()
+
+####################################################
+########Bank of America Word Corpus & Cloud#############
+####################################################
+
+BANKOFAMERICA<- searchTwitter("Bankofamerica", n=3500, cainfo="cacert.pem")
+length(BANKOFAMERICA) 
+#save text
+BANKOFAMERICA_text <- sapply(BANKOFAMERICA, function(x) x$getText()) 
+#create corpus
+BANKOFAMERICA_text_corpus <- Corpus(VectorSource(BANKOFAMERICA_text))
+#clean up
+BANKOFAMERICA_text_corpus <- tm_map(BANKOFAMERICA_text_corpus, content_transformer(tolower)) 
+BANKOFAMERICA_corpus <- tm_map(BANKOFAMERICA_text_corpus, removePunctuation)
+BANKOFAMERICA_text_corpus <- tm_map(BANKOFAMERICA_text_corpus, function(x)removeWords(x,stopwords()))
+
+library(RColorBrewer)
+pal2 <- brewer.pal(8,"Dark2")
+pdf("C:/Users/qchen/Desktop/BANKOFAMERICA_color_wordcloud.pdf")
+wordcloud(BANKOFAMERICA_text_corpus,min.freq=2,max.words=100, random.order=T, colors=pal2)
+dev.off()
+
+#################################################################
+##################### Citi Bank Word Corpus Cloud ###################
+#################################################################
+
+CITI<- searchTwitter("Citi Bank", n=4500, cainfo="cacert.pem")
+length(CITI)
+#save text
+CITI_text <- sapply(CITI, function(x) x$getText())
+#create corpus
+CITI_text_corpus <- Corpus(VectorSource(CITI_text))
+#clean up
+CITI_text_corpus <- tm_map(CITI_text_corpus, content_transformer(tolower)) 
+CITI_corpus <- tm_map(CITI_text_corpus, removePunctuation)
+CITI_text_corpus <- tm_map(CITI_text_corpus, function(x)removeWords(x,stopwords()))
+
+library(RColorBrewer)
+pal2 <- brewer.pal(8,"Dark2")
+pdf("C:/Users/qchen/Desktop/CITI_color_wordcloud.pdf")
+wordcloud(CITI_text_corpus,min.freq=2,max.words=100, random.order=T, colors=pal2)
+dev.off()
+
+##################################################
+##########Wells Fargo Word Corpus & Cloud############
+##################################################
+
+WELLSFARGO<- searchTwitter("Wellsfargo Bank", n=5500, cainfo="cacert.pem")
+length(WELLSFARGO)
+#save text
+WELLSFARGO_text <- sapply(WELLSFARGO, function(x) x$getText())
+#create corpus
+WELLSFARGO_text_corpus <- Corpus(VectorSource(WELLSFARGO_text))
+#clean up
+WELLSFARGO_text_corpus <- tm_map(WELLSFARGO_text_corpus, content_transformer(tolower)) 
+WELLSFARGO_corpus <- tm_map(WELLSFARGO_text_corpus, removePunctuation)
+WELLSFARGO_text_corpus <- tm_map(WELLSFARGO_text_corpus, function(x)removeWords(x,stopwords()))
+
+library(RColorBrewer)
+pal2 <- brewer.pal(8,"Dark2")
+pdf("C:/Users/qchen/Desktop/WELLSFARGO_color_wordcloud.pdf")
+wordcloud(WELLSFARGO_text_corpus,min.freq=2,max.words=100, random.order=T, colors=pal2)
+dev.off()
+
+##################################################
+############Sentiment Scoring Algorithm###############
+##################################################
+
+score.sentiment <- function(sentences, pos.words, neg.words, .progress='none')
+{
+require(plyr)
+require(stringr)
+scores <- laply(sentences, function(sentence, pos.words, neg.words){
+sentence <- gsub('[[:punct:]]', "", sentence)
+sentence <- gsub('[[:cntrl:]]', "", sentence)
+sentence <- gsub('\\d+', "", sentence)
+sentence <- tolower(sentence)
+word.list <- str_split(sentence, '\\s+')
+words <- unlist(word.list)
+pos.matches <- match(words, pos.words)
+neg.matches <- match(words, neg.words)
+pos.matches <- !is.na(pos.matches)
+neg.matches <- !is.na(neg.matches)
+score <- sum(pos.matches) - sum(neg.matches)
+return(score)
+}, pos.words, neg.words, .progress=.progress)
+scores.df <- data.frame(score=scores, text=sentences)
+return(scores.df)
+}
+ 
+#Upload Sentiment library (Bing Liu)
+pos <- scan('C:/Users/qchen/Desktop/positive-words.txt', what='character', comment.char=';')
+neg <- scan('C:/Users/qchen/Desktop/negative-words.txt', what='character', comment.char=';')
+pos.words <- c(pos, 'upgrade')
+neg.words <- c(neg, 'wtf', 'wait', 'waiting', 'epicfail')
+ 
+ 
+#Compute scores for a particular corpus 
+pdf("C:/Users/qchen/Desktop/BOA_score_final.pdf")
+BOA.scores = score.sentiment(BOA_text, pos.words,
+neg.words, .progress='text')
+BOA.scores$Bank = 'Bank of America'
+
+hist(BOA.scores$score)
+#########################################################
+##########Sentiment Analysis of Tweets for Four Banks###########
+#########################################################
+
+###Get Tweets for the Four Targets-----------------------------------------------------------------------------------
+
+#Sampling Tweets about JP Morgan Chase
+chase_tweets <- searchTwitter("JP Morgan Chase", n=2000, lang="en",cainfo="cacert.pem")
+#save text
+chase_text <- sapply(chase_tweets, function(x) x$getText())
+
+#Sampling Tweets about Bank of America
+BOA_tweets <- searchTwitter("Bank of America", n=2000, lang="en",cainfo="cacert.pem")
+#save text
+BOA_text <- sapply(BOA_tweets, function(x) x$getText())
+
+#Sampling Tweets about Citi Bank
+Citi_tweets <- searchTwitter("citi bank", n=2000, lang="en",cainfo="cacert.pem")
+#save text
+Citi_text <- sapply(Citi_tweets, function(x) x$getText())
+
+#Sampling Tweets about Wells Fargo
+wellsfargo_tweets <- searchTwitter("wells fargo", n=2000, lang="en",cainfo="cacert.pem")
+#save text
+
+
+wellsfargo_text <- sapply(wellsfargo_tweets, function(x) x$getText())
+wellsfargovew_text <- sapply(WELLSFARGO_corpus, function(x) x$getText())
+
+######################################################
+###########Cleaning up the Tweets########################
+######################################################
+
+#JP Morgan Chase
+chase_text = gsub("(RT|via)((?:\\b\\W*@\\w+)+)", "", chase_text)
+chase_text = gsub("@\\w+", "", chase_text)
+chase_text = gsub("[[:punct:]]", "", chase_text)
+chase_text = gsub("[[:digit:]]", "", chase_text)
+chase_text = gsub("http\\w+", "", chase_text)
+chase_text = gsub("[ \t]{2,}", "", chase_text)
+chase_text = gsub("^\\s+|\\s+$", "", chase_text)
+catch.error = function(x)
+{y = NA
+catch_error = tryCatch(tolower(x), error=function(e) e)
+if (!inherits(catch_error, "error"))
+y = tolower(x)
+return(y)
+}
+chase_text = sapply(chase_text, catch.error)
+chase_text = chase_text[!is.na(chase_text)]
+
+#Bank of America
+BOA_text = gsub("(RT|via)((?:\\b\\W*@\\w+)+)", "", BOA_text)
+BOA_text = gsub("@\\w+", "", BOA_text)
+BOA_text = gsub("[[:punct:]]", "", BOA_text)
+BOA_text = gsub("[[:digit:]]", "", BOA_text)
+BOA_text = gsub("http\\w+", "", BOA_text)
+BOA_text = gsub("[ \t]{2,}", "", BOA_text)
+BOA_text = gsub("^\\s+|\\s+$", "", BOA_text)
+catch.error = function(x)
+BOA_text = sapply(BOA_text, catch.error)
+BOA_text = BOA_text[!is.na(BOA_text)]
+
+#Citi Bank
+Citi_text = gsub("(RT|via)((?:\\b\\W*@\\w+)+)", "", Citi_text)
+Citi_text = gsub("@\\w+", "", Citi_text)
+Citi_text = gsub("[[:punct:]]", "", Citi_text)
+Citi_text = gsub("[[:digit:]]", "", Citi_text)
+Citi_text = gsub("http\\w+", "", Citi_text)
+Citi_text = gsub("[ \t]{2,}", "", Citi_text)
+Citi_text = gsub("^\\s+|\\s+$", "", Citi_text)
+catch.error = function(x)
+Citi_text = sapply(Citi_text, catch.error)
+Citi_text = Citi_text[!is.na(Citi_text)]
+
+#Wells Fargo
+wellsfargo_text = gsub("(RT|via)((?:\\b\\W*@\\w+)+)", "", wellsfargo_text)
+wellsfargo_text = gsub("@\\w+", "", wellsfargo_text)
+wellsfargo_text = gsub("[[:punct:]]", "", wellsfargo_text)
+wellsfargo_text = gsub("[[:digit:]]", "", wellsfargo_text)
+wellsfargo_text = gsub("http\\w+", "", wellsfargo_text)
+wellsfargo_text = gsub("[ \t]{2,}", "", wellsfargo_text)
+wellsfargo_text = gsub("^\\s+|\\s+$", "", wellsfargo_text)
+catch.error = function(x)
+wellsfargo_text = sapply(wellsfargo_text, catch.error)
+wellsfargo_text = wellsfargo_text[!is.na(wellsfargo_text)]
+
+
+#########################################################
+####Scoring Algorithm_Determine Comment Affective Valence#######
+#########################################################
+
+score.sentiment = function(sentences, pos.words, neg.words, .progress='none')
+{
+require(plyr)
+require(stringr)
+ 
+#Building Algorithm
+scores = laply(sentences, function(sentence, pos.words, neg.words) {
+ 
+# clean up sentences with R's regex-driven global substitute, gsub():
+sentence = gsub('[[:punct:]]', '', sentence)
+sentence = gsub('[[:cntrl:]]', '', sentence)
+sentence = gsub('\\d+', '', sentence)
+# and convert to lower case:
+sentence = tolower(sentence)
+ 
+# split into words. str_split is in the stringr package
+word.list = str_split(sentence, '\\s+')
+# sometimes a list() is one level of hierarchy too much
+words = unlist(word.list)
+ 
+# compare our words to the dictionaries of positive & negative terms
+pos.matches = match(words, pos.words)
+neg.matches = match(words, neg.words)
+ 
+# match() returns the position of the matched term or NA
+# we just want a TRUE/FALSE:
+pos.matches = !is.na(pos.matches)
+neg.matches = !is.na(neg.matches)
+ 
+# and conveniently enough, TRUE/FALSE will be treated as 1/0 by sum():
+score = sum(pos.matches) - sum(neg.matches)
+ 
+return(score)
+}, pos.words, neg.words, .progress=.progress )
+ 
+scores.df = data.frame(score=scores, text=sentences)
+return(scores.df)
+}
+
+#########################################################
+#################Upload Sentiment library (Bing Liu)############
+#########################################################
+
+pos <- scan('C:/Users/qchen/Desktop/positive-words.txt', what='character', comment.char=';')
+neg <- scan('C:/Users/qchen/Desktop/negative-words.txt', what='character', comment.char=';')
+pos.words <- c(pos, 'upgrade')
+neg.words <- c(neg, 'wtf', 'wait', 'waiting', 'epicfail')
+
+############################################################
+##########Scoring Tweets (Second Round of Cleaning) ##############
+############################################################
+
+#Individual Histogram for Sanity Check--------------------------------------------------------------------------------
+#JP Morgan Chase
+jpeg("C:/Users/qijia/Desktop/chase_score_final.jpg")
+chase.scores = score.sentiment(chase_text, pos.words,
+neg.words, .progress='text')
+chase.scores$Bank = “Bank of America”
+
+hist(chase.scores$score)
+dev.off()
+
+#Bank of America
+jpeg("C:/Users/qijia/Desktop/BOA_score_final.jpg")
+BOA.scores = score.sentiment(BOA_text, pos.words,
+neg.words, .progress='text')
+BOA.scores$Bank = “Bank of America”
+
+hist(BOA.scores$score)
+dev.off()
+
+#Citi Bank 
+jpeg("C:/Users/qijia/Desktop/Citi_score_final.jpg")
+Citi.scores = score.sentiment(Citi_text, pos.words,
+neg.words, .progress='text')
+Citi.scores$Bank = 'Citi Bank’
+hist(Citi.scores$score)
+dev.off()
+ 
+#Wells Fargo
+jpeg("C:/Users/qijia/Desktop/WellsFargo_score_final.jpg")
+wellsfargo.scores = score.sentiment(wellsfargo_text, pos.words,
+neg.words, .progress='text')
+wellsfargo.scores$Bank = 'Wells Fargo’
+hist(wellsfargo.scores$score)
+dev.off()
+
+##########################################################################
+############Force Binding Four Data Frames with Different Column Length############
+###################Credit to amywhiteheadresearch.wordpress.com################
+##########################################################################
+
+rbind.match.columns <- function(input1, input2) {
+    n.input1 <- ncol(input1)
+    n.input2 <- ncol(input2)
+ 
+    if (n.input2 < n.input1) {
+        TF.names <- which(names(input2) %in% names(input1))
+        column.names <- names(input2[, TF.names])
+    } else {
+        TF.names <- which(names(input1) %in% names(input2))
+        column.names <- names(input1[, TF.names])
+    }
+ 
+    return(rbind(input1[, column.names], input2[, column.names]))
+}
+
+####################################################################
+
+all.scores <- rbind.match.columns(chase.scores, CITI.scores, Citi.scores,
+ wellsfargo.scores)
+par1<- rbind.match.columns(chase.scores, BOA.scores)
+par2<- rbind.match.columns (Citi.scores, wellsfargo.scores)
+ALL.scores <- rbind.match.columns(par1,par2)
+
+ 
+###########################################################
+#####################Graphing with Pretty Colors################
+###########################################################
+par1<- rbind.match.columns(wellsfargo.scores,BOA.scores)
+par2<- rbind.match.columns (Citi.scores, chase.scores)
+ALL.scores <- rbind.match.columns(par1,par2)
+s = ggplot(data=ALL.scores, mapping=aes(x=score, fill=Bank) )
+s = s + facet_grid(Bank~.)
+s = s + geom_bar(binwidth=1)
+s = s + theme_bw() + scale_colour_brewer(type="seq", palette=3)
+ggsave(filename="BANK_10.pdf", plot=s)
+ 
+
+###########################################################
+#################Valence Breakdown Analysis###################
+###########################################################
+
+#Chase
+chase_tweets <- searchTwitter("JP Morgan Chase", n=2000, lang="en",cainfo="cacert.pem")
+df <- twListToDF(WE)
+df <- df[, order(names(df))]
+df$created <- strftime(df$created, '%Y-%m-%d')
+ 
+if (file.exists(paste("JP Morgan Chase", '_stack.csv'))==FALSE) write.csv(df, file=paste("JP Morgan Chase", '_stack.csv'), row.names=F)
+stack <- read.csv(file=paste("JP Morgan Chase", '_stack.csv'))
+stack <- rbind(stack, df)
+stack <- subset(stack, !duplicated(stack$text))
+write.csv(stack, file=paste("JP Morgan Chase", '_stack.csv'), row.names=F)
+
+Dataset <- stack
+Dataset$text <- as.factor(Dataset$text)
+scores <- score.sentiment(Dataset$text, pos.words, neg.words, .progress='text')
+library(plyr)
+scores <- score.sentiment(Dataset$text, pos.words, neg.words, .progress='text')
+write.csv(scores, file=paste("JP Morgan Chase", '_scores.csv'), row.names=TRUE)
+stat <- scores
+stat$created <- stack$created
+stat$created <- as.Date(stat$created)
+stat <- mutate(stat, tweet=ifelse(stat$score > 0, 'positive', ifelse(stat$score < 0, 'negative', 'neutral')))
+library(dplyr)
+by.tweet <- group_by(stat, tweet, created)
+by.tweet <- summarise(by.tweet, number=n())
+write.csv(by.tweet, file=paste("JP Morgan Chase", '_opin.csv'), row.names=TRUE)
+library(ggplot2)
+ggplot(by.tweet, aes(created, number)) + geom_line(aes(group=tweet, color=tweet), size=2) +
+geom_point(aes(group=tweet, color=tweet), size=4) +
+theme(text = element_text(size=18), axis.text.x = element_text(angle=90, vjust=1)) +
+#stat_summary(fun.y = 'sum', fun.ymin='sum', fun.ymax='sum', colour = 'yellow', size=2, geom = 'line') +
+ggtitle("JP Morgan Chase")
+ggsave(file=paste("JP Morgan Chase", '_plot.jpeg'))
+ 
+#Citi Bank 
+Citi_tweets <- searchTwitter("citi bank", n=2000, lang="en",cainfo="cacert.pem")
+df <- twListToDF(Citi_tweets)
+df <- df[, order(names(df))]
+df$created <- strftime(df$created, '%Y-%m-%d')
+ 
+if (file.exists(paste("Citi Bank", '_stack.csv'))==FALSE) write.csv(df, file=paste("Citi Bank", '_stack.csv'), row.names=F)
+stack <- read.csv(file=paste("Citi Bank", '_stack.csv'))
+stack <- rbind(stack, df)
+stack <- subset(stack, !duplicated(stack$text))
+write.csv(stack, file=paste("Citi Bank", '_stack.csv'), row.names=F)
+
+Dataset <- stack
+Dataset$text <- as.factor(Dataset$text)
+scores <- score.sentiment(Dataset$text, pos.words, neg.words, .progress='text')
+library(plyr)
+scores <- score.sentiment(Dataset$text, pos.words, neg.words, .progress='text')
+write.csv(scores, file=paste("Citi Bank", '_scores.csv'), row.names=TRUE)
+stat <- scores
+stat$created <- stack$created
+stat$created <- as.Date(stat$created)
+stat <- mutate(stat, tweet=ifelse(stat$score > 0, 'positive', ifelse(stat$score < 0, 'negative', 'neutral')))
+library(dplyr)
+by.tweet <- group_by(stat, tweet, created)
+by.tweet <- summarise(by.tweet, number=n())
+write.csv(by.tweet, file=paste("Citi Bank", '_opin.csv'), row.names=TRUE)
+library(ggplot2)
+ggplot(by.tweet, aes(created, number)) + geom_line(aes(group=tweet, color=tweet), size=2) +
+geom_point(aes(group=tweet, color=tweet), size=4) +
+theme(text = element_text(size=18), axis.text.x = element_text(angle=90, vjust=1)) +
+#stat_summary(fun.y = 'sum', fun.ymin='sum', fun.ymax='sum', colour = 'yellow', size=2, geom = 'line') +
+ggtitle("Citi Bank")
+ggsave(file=paste("Citi Bank", '_plot.jpeg'))
+ 
+#Wells Fargo
+wellsfargo_tweets <- searchTwitter("wellsfargo", n=5500, lang="en",cainfo="cacert.pem")
+df <- twListToDF(wellsfargo_tweets)
+df <- df[, order(names(df))]
+df$created <- strftime(df$created, '%Y-%m-%d')
+ 
+if (file.exists(paste("Wells Fargo", '_stack.csv'))==FALSE) write.csv(df, file=paste("Wells Fargo", '_stack.csv'), row.names=F)
+stack <- read.csv(file=paste("Wells Fargo", '_stack.csv'))
+stack <- rbind(stack, df)
+stack <- subset(stack, !duplicated(stack$text))
+write.csv(stack, file=paste("Wells Fargo", '_stack.csv'), row.names=F)
+
+Dataset <- stack
+Dataset$text <- as.factor(Dataset$text)
+scores <- score.sentiment(Dataset$text, pos.words, neg.words, .progress='text')
+library(plyr)
+scores <- score.sentiment(Dataset$text, pos.words, neg.words, .progress='text')
+write.csv(scores, file=paste("Wells Fargo", '_scores.csv'), row.names=TRUE)
+stat <- scores
+stat$created <- stack$created
+stat$created <- as.Date(stat$created)
+stat <- mutate(stat, tweet=ifelse(stat$score > 0, 'positive', ifelse(stat$score < 0, 'negative', 'neutral')))
+library(dplyr)
+by.tweet <- group_by(stat, tweet, created)
+by.tweet <- summarise(by.tweet, number=n())
+write.csv(by.tweet, file=paste("Wells Fargo", '_opin.csv'), row.names=TRUE)
+library(ggplot2)
+ggplot(by.tweet, aes(created, number)) + geom_line(aes(group=tweet, color=tweet), size=2) +
+geom_point(aes(group=tweet, color=tweet), size=4) +
+theme(text = element_text(size=18), axis.text.x = element_text(angle=90, vjust=1)) +
+#stat_summary(fun.y = 'sum', fun.ymin='sum', fun.ymax='sum', colour = 'yellow', size=2, geom = 'line') +
+ggtitle("Wells Fargo")
+ggsave(file=paste("Wells Fargo", '_plot.jpeg'))
+
+#Bank of America
+BANKOFAMERICA<- searchTwitter("Bankofamerica", n=2500, cainfo="cacert.pem")
+df <- twListToDF(BANKOFAMERICA)
+df <- df[, order(names(df))]
+df$created <- strftime(df$created, '%Y-%m-%d')
+ 
+if (file.exists(paste("Bank of America", '_stack.csv'))==FALSE) write.csv(df, file=paste("Bank of America", '_stack.csv'), row.names=F)
+stack <- read.csv(file=paste("Bank of America", '_stack.csv'))
+stack <- rbind(stack, df)
+stack <- subset(stack, !duplicated(stack$text))
+write.csv(stack, file=paste("Bank of America", '_stack.csv'), row.names=F)
+
+Dataset <- stack
+Dataset$text <- as.factor(Dataset$text)
+scores <- score.sentiment(Dataset$text, pos.words, neg.words, .progress='text')
+library(plyr)
+scores <- score.sentiment(Dataset$text, pos.words, neg.words, .progress='text')
+write.csv(scores, file=paste("Bank of America", '_scores.csv'), row.names=TRUE)
+stat <- scores
+stat$created <- stack$created
+stat$created <- as.Date(stat$created)
+stat <- mutate(stat, tweet=ifelse(stat$score > 0, 'positive', ifelse(stat$score < 0, 'negative', 'neutral')))
+library(dplyr)
+by.tweet <- group_by(stat, tweet, created)
+by.tweet <- summarise(by.tweet, number=n())
+write.csv(by.tweet, file=paste("Bank of America", '_opin.csv'), row.names=TRUE)
+library(ggplot2)
+ggplot(by.tweet, aes(created, number)) + geom_line(aes(group=tweet, color=tweet), size=2) +
+geom_point(aes(group=tweet, color=tweet), size=4) +
+theme(text = element_text(size=18), axis.text.x = element_text(angle=90, vjust=1)) +
+#stat_summary(fun.y = 'sum', fun.ymin='sum', fun.ymax='sum', colour = 'yellow', size=2, geom = 'line') +
+ggtitle("Bank of America")
+ggsave(file=paste("Bank of America", '_plot.jpeg'))
+
+ 
+###############################################################
+############Scraping Google & Yahoo News for major banks###########
+###############################################################
+
+BOA_googlefinance <- WebCorpus(GoogleFinanceSource("NYSE:BAC"))
+BOA_googlenews <- WebCorpus(GoogleNewsSource("Bank of America"))
+BOA_yahoofinance <- WebCorpus(YahooFinanceSource("BAC"))
+BOA_yahoonews <- WebCorpus(YahooNewsSource("Bank of America"))
+BOA_corpus <- c(BOA_googlefinance, BOA_googlenews, BOA_yahoofinance, BOA_yahoonews)
+BOA_corpus <- tm_map(BOA_corpus, content_transformer(tolower))
+BOA_corpus <- tm_map(BOA_corpus, removePunctuation)
+BOA_corpus <- tm_map(BOA_corpus, function(x)removeWords(x,stopwords()))
+library(RColorBrewer)
+pal2 <- brewer.pal(8,"Dark2")
+pdf("C:/Users/qijia/Desktop/BOANewsFINAL_color_wordcloud.pdf")
+wordcloud(BOA_corpus,min.freq=2,max.words=100, random.order=T, colors=pal2)
+dev.off()
+
+
+CITI_googlefinance <- WebCorpus(GoogleFinanceSource("NYSE:C"))
+CITI_googlenews <- WebCorpus(GoogleNewsSource("Citi bank"))
+CITI_yahoofinance <- WebCorpus(YahooFinanceSource("C"))
+CITI_yahoonews <- WebCorpus(YahooNewsSource("Citi bank"))
+CITI_corpus <- c(CITI_googlefinance, CITI_googlenews, CITI_yahoofinance, CITI_yahoonews)
+CITI_corpus <- tm_map(CITI_corpus, content_transformer(tolower))
+CITI_corpus <- tm_map(CITI_corpus, removePunctuation)
+CITI_corpus <- tm_map(CITI_corpus, function(x)removeWords(x,stopwords()))
+library(RColorBrewer)
+pal2 <- brewer.pal(8,"Dark2")
+pdf("C:/Users/qijia/Desktop/CITINewsFINAL2_color_wordcloud.pdf")
+wordcloud(CITI_corpus,min.freq=1,max.words=100, random.order=T, colors=pal2)
+dev.off()
+
+WELLSFARGO_googlefinance <- WebCorpus(GoogleFinanceSource("NYSE:WFC"))
+WELLSFARGO_googlenews <- WebCorpus(GoogleNewsSource("Wells Fargo"))
+WELLSFARGO_yahoofinance <- WebCorpus(YahooFinanceSource("WFC"))
+WELLSFARGO_yahoonews <- WebCorpus(YahooNewsSource("Wells Fargo"))
+WELLSFARGO_corpus <- c(WELLSFARGO_yahoonews, WELLSFARGO_yahoofinance, WELLSFARGO_googlenews, WELLSFARGO_googlefinance)
+WELLSFARGO_corpus <- tm_map(WELLSFARGO_corpus, content_transformer(tolower))
+WELLSFARGO_corpus <- tm_map(WELLSFARGO_corpus, removePunctuation)
+WELLSFARGO_corpus <- tm_map(WELLSFARGO_corpus, function(x)removeWords(x,stopwords()))
+library(RColorBrewer)
+pal2 <- brewer.pal(8,"Dark2")
+pdf("C:/Users/qijia/Desktop/WELLSFARGONewsFINAL_color_wordcloud.pdf")
+wordcloud(WELLSFARGO_corpus,min.freq=2,max.words=100, random.order=T, colors=pal2)
+dev.off()
